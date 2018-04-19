@@ -31,7 +31,16 @@ int main()
 
  char mode[]={'8','N','1',0};
 int res;
+res = KM_LCD_Init();
+if(res<0)
+{
+  perror("LCD initialization failed");
+  exit(EXIT_FAILURE);
 
+}
+
+KM_LCD_ClrScr();
+KM_LCD_Str_XY(0,0,"Gateway->RS485");
 res = sem_init(&bin_sem,0,1);
 if (res != 0) {
         perror("Semaphore initialization failed");
@@ -117,35 +126,15 @@ sem_post(&bin_sem);
 //write(fd,"0",4);
 char buf[6];
 int  n = KM_Serial_PollComport(cport_nr, buf, 5);
-/*
 
-int n = KM_Serial_PollComport(cport_nr, &buf[k], 6);
-
-k+=n;
-if((k>=4&&buf[0]=='<'))
-{
-k=0;
-int i;
-printf("received %i bytes: %s\n", n, (char *)buf);
-printf("Node %c: Temperature=> %c%c\n",buf[1],buf[2],buf[3]); 
-for(i=0;i<6;i++)
-{
-buf[i]=0;
-}
-}
-// if(n > 0)
-  //  {
-    //  buf[n] = 0;
- for(i=0; i < n; i++)
-      {
-        if(buf[i] < 32) // replace unreadable control-codes by dots 
-        {
-          buf[i] = '.';
-        }
-      }*/
 if(n>=5)
 {
 printf("Node %c:Temperature=> %c%c\n", buf[1], buf[2],buf[3]);
+
+KM_LCD_Str_XY(0,1,"Temp:");
+HD44780_PutChar(buf[2]);
+HD44780_PutChar(buf[3]);
+
 KM_Serial_flushRX(cport_nr);
 KM_Serial_flushTX(cport_nr);
 }
