@@ -2,7 +2,7 @@ CC=arm-linux-gnueabihf-gcc
 
 all:bin/main 
 
-bin/main:
+bin/main:	
 	make -C src
 	${CC} -static src/main.o -I inc/ -L lib -lgateway -lkmlcd -lpthread -o bin/main
 clean:
@@ -20,3 +20,5 @@ distclean:
 	make -C lib clean
 	make -C src clean	
 	rm bin/main
+copy:
+	scp bin/main km@192.168.1.12:~/gateway
