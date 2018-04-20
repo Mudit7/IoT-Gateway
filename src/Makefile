@@ -1,6 +1,6 @@
 CC=arm-linux-gnueabihf-gcc
 
-all:main.o
-	${CC} -static -c main.c  	
+all:
+	${CC} -fPIC -c main.c  	
 clean:
 	rm main.o

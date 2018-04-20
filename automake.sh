@@ -1,5 +1,6 @@
 #! /bin/sh
-
+export LD_LIBRARY_PATH=/home/km/KM_GIT/iot/gateway/lib
 make clean
-make 
-make copy
+make
+bin/main 
+#make copy

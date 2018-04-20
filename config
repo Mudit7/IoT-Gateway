@@ -1,0 +1,16 @@
+#Local host - Without Network with in system
+MQTT_HOST=localhost
+MQTT_PORT=1883
+MQTT_TOPIC=/weather
+
+#Local network - LAN
+#MQTT_HOST=192.168.1.21
+#MQTT_PORT=1883
+#MQTT_TOPIC=/topic
+
+#Public Server - WAN
+#MQTT_HOST=139.59.40.228
+#MQTT_PORT=8883
+#MQTT_TOPIC=/topic
+#MQTT_USERNAME=
+#MQTT_PASSWD=

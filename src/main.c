@@ -10,10 +10,11 @@
 #include "../inc/rs485.h"
 #include<mosquitto.h>
 #include <stdint.h>
-
+#include <ctype.h>
+#include <errno.h>
 
 #define MAXLEN 80
-#define CONFIG_FILE "../config"
+#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config"
 #define NO_OF_NODES 2
 
 void* thread_rx(void* arg);
@@ -55,19 +56,24 @@ int res;
 param_config();	//Reading config file
 
 res = mosquitto_lib_init();
-if(res<0)
+if(res!=0)
 {
 	perror("mosquitto_init:");
 	return -1;
 }
+bool e=true;
 
-mosq = mosquitto_new(clientid, true, 0);
-printf("mosq %p\n",mosq);
+//mosquitto_lib_cleanup();
+
+mosq = mosquitto_new(NULL, true, 0);
+   if(mosq==NULL)
+        perror("mosq_new: ");
+printf("mosq:%p\n",mosq);
 
 rc = mosquitto_connect(mosq, MQTT_HOST, MQTT_PORT, keepalive);
-if(rc<0)
+if(rc!=0)
 {
-	printf("mosquitto_connect fails\n");
+	perror("mosquitto_connect fails\n");
 }
 res = KM_LCD_Init();
 if(res<0)
@@ -117,6 +123,7 @@ if(fd<0)
   }
 
 
+ int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,10,"mudmalp",0,0);
     res=pthread_create(&a_thread,NULL,thread_rx,(void*)0);
     	if(res<0)
     	{
@@ -194,9 +201,10 @@ while(1)
 	    if(flag_func==0)
 	     {
 		printf("Node %c:Temperature=> %c%c\n", buf[1], buf[2],buf[3]);
-		sprintf(temp_buf, "%c%c",buf[2],buf[3]);
-		int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(temp_buf),temp_buf,0,0);
-		if(snd<0)
+		sprintf(temp_buf, "T%c%c",buf[2],buf[3]);
+		printf(temp_buf);
+		int snd=mosquitto_publish(mosq,NULL,"/weather",strlen(temp_buf),temp_buf,0,1);
+		if(snd!=0)
 		{	
 			perror("mosquitto_publish: ");
         		exit(EXIT_FAILURE);
@@ -206,9 +214,10 @@ while(1)
 	    if(flag_func==1)
 	      {
 		printf("Node %c:Humidity=> %c%c\n", buf[1], buf[2],buf[3]);
-		sprintf(hum_buf, "%c%c",buf[2],buf[3]);
-		int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(hum_buf),hum_buf,0,0);
-		if(snd<0)
+		sprintf(hum_buf, "H%c%c",buf[2],buf[3]);
+		printf("%s\n",hum_buf);
+		int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(hum_buf),hum_buf,0,1);
+		if(snd!=0)
 		{	
 			perror("mosquitto_publish: ");	
         		exit(EXIT_FAILURE);
@@ -235,7 +244,7 @@ void* thread_tx(void* arg)
 while(1)
 {
 	//Change Node id
-	node_id=(node_id+1)%(NO_OF_NODES+1);
+//	node_id=(node_id+1)%(NO_OF_NODES+1);
 	if(node_id==0)	node_id++;
 	while(flag_priority!=0);
 	//For Temperature
@@ -298,3 +307,76 @@ while(1)
 }
 pthread_exit(thread3_result);
 }
+
+void param_config(void) {
+	char *s, buff[256];
+	FILE *fp = fopen (CONFIG_FILE, "r");
+	if (fp == NULL)
+	{
+		return;
+	}
+
+	/* Read next line */
+	while ((s = fgets (buff, sizeof buff, fp)) != NULL)
+	{
+		/* Skip blank lines and comments */
+		if (buff[0] == '\n' || buff[0] == '#')
+			continue;
+
+		/* Parse name/value pair from line */
+		char name[MAXLEN], value[MAXLEN];
+		s = strtok (buff, "=");
+		if (s==NULL)
+			continue;
+		else
+			strncpy (name, s, MAXLEN);
+		s = strtok (NULL, "=");
+		if (s==NULL)
+			continue;
+		else
+			strncpy (value, s, MAXLEN);
+		trim (value);
+
+		/* Copy into correct entry in parameters struct */
+		if (strcmp(name, "MQTT_HOST")==0){
+			strncpy (MQTT_HOST, value, MAXLEN);
+			printf("MQTT_HOST:\t%s\n",MQTT_HOST);
+		}
+		else if (strcmp(name, "MQTT_PORT")==0){
+			MQTT_PORT = atoi(value);
+			printf("MQTT_PORT:\t%d\n",MQTT_PORT);
+		}
+		//      strncpy (parms->flavor, value, MAXLEN);
+		else if (strcmp(name, "MQTT_TOPIC")==0){
+			strncpy (MQTT_TOPIC, value, MAXLEN);
+			printf("MQTT_TOPIC:\t%s\n",MQTT_TOPIC);
+		}
+		else
+			printf ("WARNING: %s/%s: Unknown name/value pair!\n",
+					name, value);
+	}
+
+	/* Close file */
+	fclose (fp);
+}
+
+
+char* trim (char * s)
+{
+	/* Initialize start, end pointers */
+	char *s1 = s, *s2 = &s[strlen (s) - 1];
+
+	/* Trim and delimit right side */
+	while ( (isspace (*s2)) && (s2 >= s1) )
+		s2--;
+	*(s2+1) = '\0';
+
+	/* Trim left side */
+	while ( (isspace (*s1)) && (s1 < s2) )
+		s1++;
+
+	/* Copy finished string */
+	strcpy (s, s1);
+	return s;
+}
+
