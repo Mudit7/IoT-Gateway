@@ -4,7 +4,7 @@ all:bin/main
 
 bin/main:	
 	make -C src
-	${CC} -static src/main.o -I inc/ -L lib -lgateway -lkmlcd -lpthread -o bin/main
+	${CC} -static src/main.o -I inc/ -L lib -lgateway -lkmlcd -lmosquitto -lpthread -o bin/main
 clean:
 	rm bin/main
 	make -C src clean
