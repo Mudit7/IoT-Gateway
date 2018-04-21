@@ -9,7 +9,7 @@ src/main.o:
 clean:
 	rm bin/main
 	make -C src clean
-
+	rm *.o
 install:
 	sudo cp bin/main /usr/bin
 

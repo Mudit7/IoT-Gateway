@@ -187,7 +187,7 @@ http://man7.org/linux/man-pages/man3/termios.3.html
   new_port_settings.c_lflag = 0;
   /* Setting Time outs */
   new_port_settings.c_cc[VMIN] = 5;      /* block untill n bytes are received */
-  new_port_settings.c_cc[VTIME] = 1;     /* block untill a timer expires (n * 100 mSec.) */
+  new_port_settings.c_cc[VTIME] = 4;     /* block untill a timer expires (n * 100 mSec.) */
 
 
   cfsetispeed(&new_port_settings, baudr);

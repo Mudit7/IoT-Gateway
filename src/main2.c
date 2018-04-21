@@ -18,14 +18,16 @@
 
 
 
-void rx_hum_temp(int);
+void rx_temp(int);
+void rx_hum(int);
 void* thread_rx(void* arg);
 void* thread_tx(void* arg);
 void* thread_WDT(void* arg);
 pthread_t a_thread,b_thread, c_thread;
 
 int i=0, fd,cport_nr=4,bdrate=115200;
-void* thread1_result,*thread2_result,*thread3_result;	
+void* thread1_result,*thread2_result,*thread3_result;
+//int flag_func=0;	
 int node_id=0;
 char lcd_str[10],w_str[6],str_t[6],str_h[6];
 //int flag_priority=0;
@@ -33,121 +35,68 @@ uint8_t reconnect = true;
 char clientid[24];
 int rc = 0;
 char buf[30]; 
-int data_flag=0;
-int offline_cnt[NO_OF_NODES];
 
 struct mosquitto *mosq = NULL;
 int keepalive = 60;
 bool clean_session = true;
-char data_buf[7];
-char mosq_buf[30];
+char temp_buf[30],hum_buf[30];
 
 char MQTT_HOST[MAXLEN];
 int  MQTT_PORT;
 char MQTT_TOPIC[MAXLEN];
 
-sem_t bin_sem;
 
 void param_config(void);
 char* trim (char * );
 
-void offline_func(int node)
+void rx_temp(int sig)
 {
-	
-	printf("Node %d Offline\n", node);
-	sprintf(lcd_str,"Node %d Offline",node);
-	KM_LCD_Str_XY(0,1,lcd_str);
-	offline_cnt[node-1]=0;
-	sprintf(mosq_buf,"O%d",node);
-	int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(mosq_buf),mosq_buf,0,0);
-	if(snd!=0)
-	{	
-		perror("mosquitto_publish: ");
-        	exit(EXIT_FAILURE);
-	}
-}
-
-void rx_hum_temp(int sig)
-{	
-		sem_wait(&bin_sem);
-		printf("Rx signal\n");
+		printf("Rx_Temp\n");
 		char lcd_str[16];
-		usleep(500000);
-		int  n = KM_Serial_PollComport(cport_nr, buf, 20);
-		printf("buffer:%s\n",buf);
-		
-		if(n<4) 
+		int  n = KM_Serial_PollComport(cport_nr, buf, 5);
+		if(n<5) 
 		{
-
-			KM_Serial_flushRX(cport_nr);
-			for(i=0;i<20;i++)
-			buf[i]=0;
-		        offline_cnt[node_id-1]++;
-			if(offline_cnt[node_id-1]>=5)
-			{
-				offline_func(node_id);
-			}
-			sem_post(&bin_sem);
-
+			sprintf(lcd_str,"Node %d Offline",node_id);
+			KM_LCD_Str_XY(0,1,lcd_str);
 			return;
 		}
-		//extract data
-		int k=0;
-		for(i=0;i<10;i++)	
-		{
-			if(buf[i]=='<')
-			{
-				data_buf[k]=buf[i];
-				data_flag=1;
-				continue;
-			}
-			if(buf[i]=='>')
-			{	
-				k++;
-				data_buf[k]=buf[i];
-				data_flag=0;
-				data_buf[k+1]=0;
-				break;
-			}
-			if(data_flag==1)
-			{
-				k++;
-				data_buf[k]=buf[i];
-			}
-		
-			
-		}
-		printf("data_buf=%s\n",data_buf);
-		if(k<5||k>7) //bad packet
-		{
-			printf("Bad Packet %d\n",k);	
-			KM_Serial_flushRX(cport_nr);
-		}
-		if(data_buf[2]=='T')
-		{	
-			printf("Node %c:Temperature=> %c%c\n", data_buf[1], data_buf[3],data_buf[4]);
-			sprintf(mosq_buf, "T%c%c",data_buf[2],data_buf[3]);
-			sprintf(lcd_str,"N1: Temp->%c%c",data_buf[3],data_buf[4]);
-		}
-		if(data_buf[2]=='H')
-		{
-			printf("Node %c:Humidity=> %c%c\n", data_buf[1], data_buf[3],data_buf[4]);
-			sprintf(mosq_buf, "H%c%c",data_buf[3],data_buf[4]);
-			sprintf(lcd_str,"N1: Hum->%c%c",data_buf[3],data_buf[4]);
-		}
-
-		int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(mosq_buf),mosq_buf,0,0);
+		printf("Node %c:Temperature=> %c%c\n", buf[1], buf[2],buf[3]);
+		sprintf(temp_buf, "%c%c",buf[2],buf[3]);
+		int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(temp_buf),temp_buf,0,0);
 		if(snd!=0)
 		{	
 			perror("mosquitto_publish: ");
         		exit(EXIT_FAILURE);
 		}
-
+		sprintf(lcd_str,"N1: Temp->%c%c",buf[2],buf[3]);
 		KM_Serial_flushRX(cport_nr);
-		sem_post(&bin_sem);	
 		KM_LCD_Str_XY(0,1,lcd_str);	
-		
 }
+void rx_hum(int sig)
+{	
+		
+		printf("Rx Hum\n");
+		char lcd_str[16];
+		int  n = KM_Serial_PollComport(cport_nr, buf, 5);
+		if(n<5) 
+		{
+			sprintf(lcd_str,"Node %d Offline",node_id);
+			KM_LCD_Str_XY(0,1,lcd_str);
+			return;
+		}
+		printf("Node %c:Humidity=> %c%c\n", buf[1], buf[2],buf[3]);
+		sprintf(hum_buf, "H%c%c",buf[2],buf[3]);
+		int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(hum_buf),hum_buf,0,0);
+		if(snd!=0)
+		{	
+			perror("mosquitto_publish: ");
+        		exit(EXIT_FAILURE);
+		}
+		sprintf(lcd_str,"N1: Hum->%c%c",buf[2],buf[3]);
+		KM_Serial_flushRX(cport_nr);
+	
+}
+
 
 
 int main()
@@ -162,7 +111,7 @@ if(res<0)
 	perror("mosquitto_init:");
 	return -1;
 }
-sem_init(&bin_sem,0,1);
+
 mosq = mosquitto_new(NULL, true, 0);
 printf("mosq %p\n",mosq);
 
@@ -272,7 +221,8 @@ return 0;
 
 void* thread_rx(void* arg)
 {
-	(void) signal(SIGALRM,rx_hum_temp);
+	(void) signal(SIGALRM,rx_temp);
+	(void) signal(SIGPROF,rx_hum);	
 	while(1)
 	{	
 		printf("rx thread\n");	
@@ -287,37 +237,35 @@ void* thread_tx(void* arg)
 {
 while(1)
 {
-	sem_wait(&bin_sem);
 	printf("tx thread\n");
 	//Change Node id
 	node_id=(node_id+1)%(NO_OF_NODES+1);
 	if(node_id==0)	node_id++;
+//	while(flag_priority!=0);
 	//For Temperature
 	KM_Serial_flushTX(cport_nr);
 	write(fd,"1",4);
-	usleep(10000);
+	usleep(100000);
 	sprintf(str_t,"<%dT>\n",node_id);
 	KM_Serial_SendBuf(cport_nr, str_t,sizeof(str_t));
-	usleep(100000);
+	usleep(90000);
 	write(fd,"0",4);
+	usleep(100000);
 	printf("sent: %s\n", str_t);
-	usleep(300000);
 	pthread_kill(a_thread,SIGALRM);
-	sem_post(&bin_sem);
 		
 	usleep(2000000);
-	sem_wait(&bin_sem);
+
 	KM_Serial_flushTX(cport_nr);
 	write(fd,"1",4);
-	usleep(10000);
+	usleep(100000);
 	sprintf(str_h,"<%dH>\n",node_id);
 	KM_Serial_SendBuf(cport_nr, str_h,sizeof(str_h));
-	usleep(100000);
+	usleep(90000);
 	write(fd,"0",4);
+	usleep(10000);
 	printf("sent: %s\n", str_h);
-	usleep(300000);
-	pthread_kill(a_thread,SIGALRM);
-	sem_post(&bin_sem);
+	pthread_kill(a_thread,SIGPROF);
 
 	usleep(3000000);
 }
@@ -328,7 +276,6 @@ void* thread_WDT(void* arg)
 {
 while(1)
 {
-	sem_wait(&bin_sem);
 	write(fd,"1",4);
 	usleep(1000);
 	strcpy(w_str,"<0W>");
@@ -336,8 +283,8 @@ while(1)
 	usleep(90000);
 	printf("sent %s\n",w_str);
 	write(fd,"0",4);
+	//flag_priority=1;
 	usleep(1000);
-	sem_post(&bin_sem);
 	sleep(3);
 }
 pthread_exit(thread3_result);
