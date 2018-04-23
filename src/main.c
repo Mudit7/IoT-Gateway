@@ -58,7 +58,7 @@ void offline_func(int node)
 	sprintf(lcd_str,"Node %d Offline",node);
 	KM_LCD_Str_XY(0,1,lcd_str);
 	offline_cnt[node-1]=0;
-	sprintf(mosq_buf,"O%d",node);
+	sprintf(mosq_buf,"%dO",node);
 	int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(mosq_buf),mosq_buf,0,0);
 	if(snd!=0)
 	{	
@@ -123,17 +123,22 @@ void rx_hum_temp(int sig)
 			printf("Bad Packet %d\n",k);	
 			KM_Serial_flushRX(cport_nr);
 		}
+		else
+		{
+			offline_cnt[node_id-1]=0;
+		}
+		
 		if(data_buf[2]=='T')
 		{	
 			printf("Node %c:Temperature=> %c%c\n", data_buf[1], data_buf[3],data_buf[4]);
-			sprintf(mosq_buf, "T%c%c",data_buf[2],data_buf[3]);
-			sprintf(lcd_str,"N1: Temp->%c%c",data_buf[3],data_buf[4]);
+			sprintf(mosq_buf, "%dT%c%c",node_id,data_buf[3],data_buf[4]);
+			sprintf(lcd_str,"N1: Temp->%c%c  ",data_buf[3],data_buf[4]);
 		}
 		if(data_buf[2]=='H')
 		{
 			printf("Node %c:Humidity=> %c%c\n", data_buf[1], data_buf[3],data_buf[4]);
-			sprintf(mosq_buf, "H%c%c",data_buf[3],data_buf[4]);
-			sprintf(lcd_str,"N1: Hum->%c%c",data_buf[3],data_buf[4]);
+			sprintf(mosq_buf, "%dH%c%c",node_id,data_buf[3],data_buf[4]);
+			sprintf(lcd_str,"N1: Hum ->%c%c  ",data_buf[3],data_buf[4]);
 		}
 
 		int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(mosq_buf),mosq_buf,0,0);
