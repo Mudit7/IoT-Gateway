@@ -12,8 +12,8 @@ ZIGBEE_UART=/dev/ttyO2
 IoT_NO_OF_NODES=2
 #IoT Protocol Configuration
 IoT_RS485=1
-IoT_ZIGBEE=1
-IoT_POLLTIME=3
+IoT_ZIGBEE=0
+IoT_POLLTIME=1
 
 #Local host - Without Network with in system
 #MQTT

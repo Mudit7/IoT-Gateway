@@ -13,8 +13,7 @@
 #include<signal.h>
 
 #define MAXLEN 80
-#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config"      //abs location for config file
-
+#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config"
 
 //#define NO_OF_NODES 2
 
@@ -36,18 +35,17 @@ char clientid[24];
 int rc = 0;
 char buf[30]; 
 int data_flag=0;
-int offline_cnt[10];                     //no of times nodes didn't respond (consequently)
+int offline_cnt[10];
 int no_of_nodes=0;
-int poll_time=0;                         //polling interval
+int poll_time=0;
 
 struct mosquitto *mosq = NULL;
 int keepalive = 60;
 bool clean_session = true;
-char data_buf[7];                         //clean packet data
-char mosq_buf[30];                        //final publish data buffer
+char data_buf[7];
+char mosq_buf[30];
 
-
-char rs485_uart[15];                      //dev file for rs485 uart (/dev/tty..)
+char rs485_uart[15];
 char zigbee_uart[15];
 
 bool zig_en=0;
@@ -77,18 +75,17 @@ void offline_func(int node)
 	}
 }
 
-void rx_hum_temp(int sig)                  //To receive the data from uart buffer
+void rx_hum_temp(int sig)
 { 		int n1,n2;	
 		sem_wait(&bin_sem);
-		//printf("Rx signal\n");
+		printf("Rx signal\n");
 		char lcd_str[16];
 		usleep(500000);
 		if(zig_en)
-		 n1 = KM_Serial_PollComport(cport_nr1, buf, 20);             //uart2 
+		 n1 = KM_Serial_PollComport(cport_nr1, buf, 20);
 		if(rs_en)
-		 n2 = KM_Serial_PollComport(cport_nr2, buf, 20);             //uart4
-
-		//printf("buffer:%s\n",buf);
+		 n2 = KM_Serial_PollComport(cport_nr2, buf, 20);
+		printf("buffer:%s\n",buf);
 		
 		if((n1<4)&&(n2<4)) 
 		{
@@ -132,7 +129,7 @@ void rx_hum_temp(int sig)                  //To receive the data from uart buffe
 		
 			
 		}
-		//printf("data_buf=%s\n",data_buf);
+		printf("data_buf=%s\n",data_buf);
 		if(k<5||k>7) //bad packet
 		{
 			printf("Bad Packet %d\n",k);	
@@ -144,8 +141,6 @@ void rx_hum_temp(int sig)                  //To receive the data from uart buffe
 			offline_cnt[node_id-1]=0;
 		}
 		
-		 // check if data received is temperature or humidity
-
 		if(data_buf[2]=='T')
 		{	
 			printf("Node %c:Temperature=> %c%c\n", data_buf[1], data_buf[3],data_buf[4]);
@@ -158,8 +153,6 @@ void rx_hum_temp(int sig)                  //To receive the data from uart buffe
 			sprintf(mosq_buf, "%dH%c%c",node_id,data_buf[3],data_buf[4]);
 			sprintf(lcd_str,"N1: Hum ->%c%c  ",data_buf[3],data_buf[4]);
 		}
-
-		// finally publish the received data
 
 		int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(mosq_buf),mosq_buf,0,0);
 		if(snd!=0)
@@ -190,7 +183,7 @@ if(res<0)
 }
 sem_init(&bin_sem,0,1);
 mosq = mosquitto_new(NULL, true, 0);
-//printf("mosq %p\n",mosq);
+printf("mosq %p\n",mosq);
 
 rc = mosquitto_connect(mosq, MQTT_HOST, MQTT_PORT, keepalive);
 if(rc!=0)
@@ -259,6 +252,14 @@ if(fd<0)
         	perror("thread_create failed : \n");
         	return -1;
     	}
+
+  /* res=pthread_create(&c_thread,NULL,thread_WDT,(void*)0);
+    	if(res<0)
+    	{
+        	perror("thread_create failed : \n");
+        	return -1;
+    	} 
+  */
     res=pthread_join(a_thread,&thread1_result);
     	if(res<0)
    	 {
@@ -282,6 +283,17 @@ if(fd<0)
         	printf("thread joined\n");
     	}
 
+/*   res=pthread_join(c_thread,&thread3_result);
+    	if(res<0)
+    	{
+        	perror("join failed:\n");
+        	exit(EXIT_FAILURE);
+    	}
+    	else
+    	{
+        	printf("thread joined\n");
+    	}
+*/
 return 0;
 }
 
@@ -291,7 +303,7 @@ void* thread_rx(void* arg)
 	(void) signal(SIGALRM,rx_hum_temp);
 	while(1)
 	{	
-	//	printf("rx thread\n");	
+		printf("rx thread\n");	
 		pause();
 	}	
 	mosquitto_destroy(mosq);
@@ -304,8 +316,47 @@ void* thread_tx(void* arg)
  char func_code;
 while(1)
 {
- 	sem_wait(&bin_sem);
-       // printf("tx thread\n");
+/*	sem_wait(&bin_sem);
+	printf("tx thread\n");
+	//Change Node id
+	node_id=(node_id+1)%(no_of_nodes+1);
+
+	if(node_id==0)	node_id++;
+	//For Temperature
+	KM_Serial_flushTX(cport_nr1);
+	KM_Serial_flushTX(cport_nr2);
+	write(fd,"1",4);
+	usleep(10000);
+	sprintf(str_t,"<%dT>\n",node_id);
+	KM_Serial_SendBuf(cport_nr1, str_t,sizeof(str_t));  //send through zigbee and rs485
+	KM_Serial_SendBuf(cport_nr2, str_t,sizeof(str_t));
+	usleep(100000);
+	write(fd,"0",4);
+	printf("sent: %s\n", str_t);
+	usleep(300000);
+	pthread_kill(a_thread,SIGALRM);
+	sem_post(&bin_sem);
+		
+	sleep(1);
+	sem_wait(&bin_sem);
+	KM_Serial_flushTX(cport_nr1);
+	KM_Serial_flushTX(cport_nr2);
+	write(fd,"1",4);
+	usleep(10000);
+	sprintf(str_h,"<%dH>\n",node_id);
+	KM_Serial_SendBuf(cport_nr1, str_h,sizeof(str_h));
+	KM_Serial_SendBuf(cport_nr2, str_h,sizeof(str_h));
+	usleep(100000);
+	write(fd,"0",4);
+	printf("sent: %s\n", str_h);
+	usleep(300000);
+	pthread_kill(a_thread,SIGALRM);
+	sem_post(&bin_sem);
+
+	sleep(poll_time);		//Poll Interval
+*/
+    sem_wait(&bin_sem);
+        printf("tx thread\n");
         //Change Node id
         if(func_code=='H')
         node_id=(node_id+1)%(no_of_nodes+1);
@@ -324,7 +375,7 @@ while(1)
         KM_Serial_SendBuf(cport_nr2, str_t,sizeof(str_t));
         usleep(100000);
         write(fd,"0",4);
-       // printf("sent: %s\n", str_t);
+        printf("sent: %s\n", str_t);
         usleep(300000);
         pthread_kill(a_thread,SIGALRM);
         sem_post(&bin_sem);
@@ -335,6 +386,26 @@ while(1)
 pthread_exit(thread2_result);
 }
 
+/*void* thread_WDT(void* arg)
+{
+while(1)
+{
+	sem_wait(&bin_sem);
+	write(fd,"1",4);
+	usleep(1000);
+	strcpy(w_str,"<0W>");
+	KM_Serial_SendBuf(cport_nr,w_str,sizeof(w_str));
+	usleep(90000);
+	printf("sent %s\n",w_str);
+	write(fd,"0",4);
+	usleep(1000);
+	sem_post(&bin_sem);
+	sleep(3);
+}
+pthread_exit(thread3_result);
+}
+
+*/
 char* trim (char * s)
 {
         /* Initialize start, end pointers */
