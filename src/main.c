@@ -14,7 +14,8 @@
 
 #define MAXLEN 80
 #define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config"
-#define NO_OF_NODES 2
+
+//#define NO_OF_NODES 2
 
 
 
@@ -24,7 +25,7 @@ void* thread_tx(void* arg);
 void* thread_WDT(void* arg);
 pthread_t a_thread,b_thread, c_thread;
 
-int i=0, fd,cport_nr=4,bdrate=115200;
+int i=0, fd,cport_nr2=4,cport_nr1=2,bdrate=115200;
 void* thread1_result,*thread2_result,*thread3_result;	
 int node_id=0;
 char lcd_str[10],w_str[6],str_t[6],str_h[6];
@@ -34,7 +35,9 @@ char clientid[24];
 int rc = 0;
 char buf[30]; 
 int data_flag=0;
-int offline_cnt[NO_OF_NODES];
+int offline_cnt[10];
+int no_of_nodes=0;
+int poll_time=0;
 
 struct mosquitto *mosq = NULL;
 int keepalive = 60;
@@ -42,6 +45,11 @@ bool clean_session = true;
 char data_buf[7];
 char mosq_buf[30];
 
+char rs485_uart[15];
+char zigbee_uart[15];
+
+bool zig_en=0;
+bool rs_en=0;
 char MQTT_HOST[MAXLEN];
 int  MQTT_PORT;
 char MQTT_TOPIC[MAXLEN];
@@ -73,13 +81,15 @@ void rx_hum_temp(int sig)
 		printf("Rx signal\n");
 		char lcd_str[16];
 		usleep(500000);
-		int  n = KM_Serial_PollComport(cport_nr, buf, 20);
+		int  n1 = KM_Serial_PollComport(cport_nr1, buf, 20);
+		int  n2 = KM_Serial_PollComport(cport_nr2, buf, 20);
 		printf("buffer:%s\n",buf);
 		
-		if(n<4) 
+		if((n1<4)&&(n2<4)) 
 		{
 
-			KM_Serial_flushRX(cport_nr);
+			KM_Serial_flushRX(cport_nr1);
+			KM_Serial_flushRX(cport_nr2);
 			for(i=0;i<20;i++)
 			buf[i]=0;
 		        offline_cnt[node_id-1]++;
@@ -121,7 +131,8 @@ void rx_hum_temp(int sig)
 		if(k<5||k>7) //bad packet
 		{
 			printf("Bad Packet %d\n",k);	
-			KM_Serial_flushRX(cport_nr);
+			KM_Serial_flushRX(cport_nr1);
+			KM_Serial_flushRX(cport_nr2);
 		}
 		else
 		{
@@ -148,7 +159,8 @@ void rx_hum_temp(int sig)
         		exit(EXIT_FAILURE);
 		}
 
-		KM_Serial_flushRX(cport_nr);
+		KM_Serial_flushRX(cport_nr1);
+		KM_Serial_flushRX(cport_nr2);
 		sem_post(&bin_sem);	
 		KM_LCD_Str_XY(0,1,lcd_str);	
 		
@@ -185,7 +197,7 @@ if(res<0)
 }
 
 KM_LCD_ClrScr();
-KM_LCD_Str_XY(0,0,"Gateway->RS485");
+KM_LCD_Str_XY(0,0,"Gateway->");
 fd=open("/sys/class/gpio/export",O_WRONLY);
 if(fd<0)
 {
@@ -211,32 +223,41 @@ if(fd<0)
         exit(EXIT_FAILURE);
 }
 
- if(KM_Serial_OpenComport(cport_nr, bdrate, mode))
+ if(KM_Serial_OpenComport(cport_nr1, bdrate, mode))
   {
-    printf("Can not open comport\n");
+    printf("Can not open comport - uart2\n");
+        exit(EXIT_FAILURE);
+  }
+ if(KM_Serial_OpenComport(cport_nr2, bdrate, mode))
+  {
+    printf("Can not open comport - uart4\n");
         exit(EXIT_FAILURE);
   }
 
 
-    res=pthread_create(&a_thread,NULL,thread_rx,(void*)0);
+    strcpy(mosq_buf,"");
+	int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,0,mosq_buf,0,0);
+	
+	res=pthread_create(&a_thread,NULL,thread_rx,(void*)0);
     	if(res<0)
     	{
 		perror("thread_create failed : \n");
         	return -1;
    	 }
-   res=pthread_create(&b_thread,NULL,thread_tx,(void*)0);
+    res=pthread_create(&b_thread,NULL,thread_tx,(void*)0);
     	if(res<0)
     	{
         	perror("thread_create failed : \n");
         	return -1;
     	}
 
-  res=pthread_create(&c_thread,NULL,thread_WDT,(void*)0);
+  /* res=pthread_create(&c_thread,NULL,thread_WDT,(void*)0);
     	if(res<0)
     	{
         	perror("thread_create failed : \n");
         	return -1;
-    	}
+    	} 
+  */
     res=pthread_join(a_thread,&thread1_result);
     	if(res<0)
    	 {
@@ -260,7 +281,7 @@ if(fd<0)
         	printf("thread joined\n");
     	}
 
-   res=pthread_join(c_thread,&thread3_result);
+/*   res=pthread_join(c_thread,&thread3_result);
     	if(res<0)
     	{
         	perror("join failed:\n");
@@ -270,7 +291,7 @@ if(fd<0)
     	{
         	printf("thread joined\n");
     	}
-
+*/
 return 0;
 }
 
@@ -295,14 +316,17 @@ while(1)
 	sem_wait(&bin_sem);
 	printf("tx thread\n");
 	//Change Node id
-	node_id=(node_id+1)%(NO_OF_NODES+1);
+	node_id=(node_id+1)%(no_of_nodes+1);
+
 	if(node_id==0)	node_id++;
 	//For Temperature
-	KM_Serial_flushTX(cport_nr);
+	KM_Serial_flushTX(cport_nr1);
+	KM_Serial_flushTX(cport_nr2);
 	write(fd,"1",4);
 	usleep(10000);
 	sprintf(str_t,"<%dT>\n",node_id);
-	KM_Serial_SendBuf(cport_nr, str_t,sizeof(str_t));
+	KM_Serial_SendBuf(cport_nr1, str_t,sizeof(str_t));  //send through zigbee and rs485
+	KM_Serial_SendBuf(cport_nr2, str_t,sizeof(str_t));
 	usleep(100000);
 	write(fd,"0",4);
 	printf("sent: %s\n", str_t);
@@ -310,13 +334,15 @@ while(1)
 	pthread_kill(a_thread,SIGALRM);
 	sem_post(&bin_sem);
 		
-	usleep(2000000);
+	sleep(1);
 	sem_wait(&bin_sem);
-	KM_Serial_flushTX(cport_nr);
+	KM_Serial_flushTX(cport_nr1);
+	KM_Serial_flushTX(cport_nr2);
 	write(fd,"1",4);
 	usleep(10000);
 	sprintf(str_h,"<%dH>\n",node_id);
-	KM_Serial_SendBuf(cport_nr, str_h,sizeof(str_h));
+	KM_Serial_SendBuf(cport_nr1, str_h,sizeof(str_h));
+	KM_Serial_SendBuf(cport_nr2, str_h,sizeof(str_h));
 	usleep(100000);
 	write(fd,"0",4);
 	printf("sent: %s\n", str_h);
@@ -324,12 +350,12 @@ while(1)
 	pthread_kill(a_thread,SIGALRM);
 	sem_post(&bin_sem);
 
-	usleep(3000000);
+	sleep(poll_time);		//Poll Interval
 }
 pthread_exit(thread2_result);
 }
 
-void* thread_WDT(void* arg)
+/*void* thread_WDT(void* arg)
 {
 while(1)
 {
@@ -348,7 +374,7 @@ while(1)
 pthread_exit(thread3_result);
 }
 
-
+*/
 char* trim (char * s)
 {
         /* Initialize start, end pointers */
@@ -412,6 +438,32 @@ void param_config(void) {
                         strncpy (MQTT_TOPIC, value, MAXLEN);
                         printf("MQTT_TOPIC:\t%s\n",MQTT_TOPIC);
                 }
+                //	IoT Configuration
+		
+		else if (strcmp(name, "RS485_UART")==0){
+                        strncpy (rs485_uart, value, MAXLEN);   
+                        printf("RS485_UART = \t%s\n",rs485_uart);
+                }
+		else if (strcmp(name, "ZIGBEE_UART")==0){
+                        strncpy (zigbee_uart, value, MAXLEN);
+                        printf("ZIGBEE_UART = \t%s\n",zigbee_uart);
+                }
+		else if (strcmp(name, "IoT_NO_OF_NODES")==0){
+                        no_of_nodes=atoi(value);
+                        printf("Number of Nodes = \t%d\n",no_of_nodes);
+                }
+		else if (strcmp(name, "IoT_ZIGBEE")==0){
+                        zig_en=atoi(value);
+                        printf("Zigbee enable:\t%d\n",zig_en);
+                }
+                else if (strcmp(name, "IoT_RS485")==0){
+                        rs_en=atoi(value);
+                        printf("RS485 enable:\t%d\n",rs_en);
+                }
+                else if (strcmp(name, "IoT_POLLTIME")==0){
+                        poll_time=atoi(value);
+                        printf("Poll Time :\t%d\n",poll_time);
+                }
                 else
                         printf ("WARNING: %s/%s: Unknown name/value pair!\n",
                                         name, value);
@@ -419,6 +471,3 @@ void param_config(void) {
         /* Close file */
         fclose (fp);
 }
-
- 
-

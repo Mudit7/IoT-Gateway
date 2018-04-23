@@ -2,5 +2,16 @@ KM IoT Protocol Format:
 ---------------------
 
 Gateway: 
+tx: 	<start><node_id><function_code><end>
+	start: '<'
+	node_id: Id of the node
+	function_code: 'T' for temperature and 'H' for Humidity
+	end:'>'
 
-Node1: 
+rx: 	<start><node_id><function_code><data><end>
+	start:'<'
+	node_id: Id of the node transmitting the data
+	function_code: 'T' or 'H'
+	data:Temperature or humidity value
+	end:'>'
+
