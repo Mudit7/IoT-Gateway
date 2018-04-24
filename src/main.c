@@ -26,7 +26,7 @@ void* thread_tx(void* arg);
 void* thread_WDT(void* arg);
 pthread_t a_thread,b_thread, c_thread;
 
-int i=0, fd,cport_nr2=4,cport_nr1=2,bdrate=115200;
+int i=0, fd,cport_nr2=4,cport_nr1=5,bdrate=115200;
 void* thread1_result,*thread2_result,*thread3_result;	
 int node_id=0;
 char lcd_str[10],w_str[6],str_t[6],str_h[6];
@@ -45,7 +45,7 @@ int keepalive = 60;
 bool clean_session = true;
 char data_buf[7];                         //clean packet data
 char mosq_buf[30];                        //final publish data buffer
-
+char func_code;
 
 char rs485_uart[15];                      //dev file for rs485 uart (/dev/tty..)
 char zigbee_uart[15];
@@ -85,10 +85,10 @@ void rx_hum_temp(int sig)                  //To receive the data from uart buffe
 		usleep(500000);
 		if(zig_en)
 		 n1 = KM_Serial_PollComport(cport_nr1, buf, 20);             //uart2 
-		if(rs_en)
+		if(rs_en&&n1<5)
 		 n2 = KM_Serial_PollComport(cport_nr2, buf, 20);             //uart4
 
-		//printf("buffer:%s\n",buf);
+//		printf("buffer:%s\n",buf);
 		
 		if((n1<4)&&(n2<4)) 
 		{
@@ -244,10 +244,19 @@ if(fd<0)
   }
 
 
-    strcpy(mosq_buf,"");
-	int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,0,mosq_buf,0,0);
-	
-	res=pthread_create(&a_thread,NULL,thread_rx,(void*)0);
+//testing..
+/*        KM_Serial_flushTX(cport_nr1);
+        KM_Serial_flushTX(cport_nr2);
+        write(fd,"1",4);
+        usleep(10000);
+        sprintf(str_t,"<%d%c>\n",1,'Z');
+        if(zig_en)
+        KM_Serial_SendBuf(cport_nr1, str_t,sizeof(str_t));  //send through zigbee and rs485
+        KM_Serial_SendBuf(cport_nr2, str_t,sizeof(str_t));  //send through zigbee and rs485
+        sleep(2);
+
+       printf("configured for zigbee\n");	
+*/	res=pthread_create(&a_thread,NULL,thread_rx,(void*)0);
     	if(res<0)
     	{
 		perror("thread_create failed : \n");
@@ -282,6 +291,7 @@ if(fd<0)
         	printf("thread joined\n");
     	}
 
+
 return 0;
 }
 
@@ -307,6 +317,7 @@ while(1)
  	sem_wait(&bin_sem);
        // printf("tx thread\n");
         //Change Node id
+
         if(func_code=='H')
         node_id=(node_id+1)%(no_of_nodes+1);
         if(node_id==0)  node_id++;

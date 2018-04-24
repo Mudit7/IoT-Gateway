@@ -6,13 +6,13 @@
 RS485_UART=/dev/ttyO4
 
 #Zigbee Configuration (default 115200 n81)
-ZIGBEE_UART=/dev/ttyO2
+ZIGBEE_UART=/dev/ttyO5
 
 #IoT Configuration
 IoT_NO_OF_NODES=2
 #IoT Protocol Configuration
 IoT_RS485=1
-IoT_ZIGBEE=0
+IoT_ZIGBEE=1
 IoT_POLLTIME=1
 
 #Local host - Without Network with in system
