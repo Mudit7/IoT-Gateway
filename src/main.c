@@ -13,8 +13,8 @@
 #include<signal.h>
 
 #define MAXLEN 80
-#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config"      //abs location for config file
-
+#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config.txt"      //abs location for config file
+//#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config_copy"      //abs location for config file
 
 //#define NO_OF_NODES 2
 
@@ -23,7 +23,7 @@
 void rx_hum_temp(int);
 void* thread_rx(void* arg);
 void* thread_tx(void* arg);
-void* thread_WDT(void* arg);
+void* thread_config(void* arg);
 pthread_t a_thread,b_thread, c_thread;
 
 int i=0, fd,cport_nr2=4,cport_nr1=5,bdrate=115200;
@@ -61,6 +61,7 @@ sem_t bin_sem;
 void param_config(void);
 char* trim (char * );
 
+
 void offline_func(int node)
 {
 	
@@ -69,7 +70,7 @@ void offline_func(int node)
 	KM_LCD_Str_XY(0,1,lcd_str);
 	offline_cnt[node-1]=0;
 	sprintf(mosq_buf,"%dO",node);
-	int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(mosq_buf),mosq_buf,0,0);
+	int snd=mosquitto_publish(mosq,NULL,"/weather",strlen(mosq_buf),mosq_buf,0,0);
 	if(snd!=0)
 	{	
 		perror("mosquitto_publish: ");
@@ -161,11 +162,11 @@ void rx_hum_temp(int sig)                  //To receive the data from uart buffe
 
 		// finally publish the received data
 
-		int snd=mosquitto_publish(mosq,NULL,MQTT_TOPIC,strlen(mosq_buf),mosq_buf,0,0);
+		int snd=mosquitto_publish(mosq,NULL,"/weather",strlen(mosq_buf),mosq_buf,0,0);
 		if(snd!=0)
 		{	
 			perror("mosquitto_publish: ");
-        		exit(EXIT_FAILURE);
+//        		exit(EXIT_FAILURE);
 		}
 
 		KM_Serial_flushRX(cport_nr1);
@@ -190,11 +191,12 @@ if(res<0)
 }
 sem_init(&bin_sem,0,1);
 mosq = mosquitto_new(NULL, true, 0);
-//printf("mosq %p\n",mosq);
+printf("mosq %p\n",mosq);
 
-rc = mosquitto_connect(mosq, MQTT_HOST, MQTT_PORT, keepalive);
+rc = mosquitto_connect(mosq,"localhost",1883 , keepalive);
 if(rc!=0)
 {
+
 	perror("mosquitto_connect:\n");
 }
 res = KM_LCD_Init();
@@ -268,6 +270,12 @@ if(fd<0)
         	perror("thread_create failed : \n");
         	return -1;
     	}
+    res=pthread_create(&c_thread,NULL,thread_config,(void*)0);
+    	if(res<0)
+    	{
+        	perror("thread_create failed : \n");
+        	return -1;
+    	}
     res=pthread_join(a_thread,&thread1_result);
     	if(res<0)
    	 {
@@ -278,6 +286,7 @@ if(fd<0)
     	{
         	printf("thread joined\n");
     	}
+
    
 
    res=pthread_join(b_thread,&thread2_result);
@@ -292,6 +301,17 @@ if(fd<0)
     	}
 
 
+    res=pthread_join(c_thread,&thread3_result);
+    	if(res<0)
+   	 {
+       		 perror("join failed:\n");
+        	exit(EXIT_FAILURE);
+    	 }
+    	else
+    	{
+        	printf("thread joined\n");
+    	}
+   
 return 0;
 }
 
@@ -315,9 +335,8 @@ void* thread_tx(void* arg)
 while(1)
 {
  	sem_wait(&bin_sem);
-       // printf("tx thread\n");
+        printf("tx thread\n");
         //Change Node id
-
         if(func_code=='H')
         node_id=(node_id+1)%(no_of_nodes+1);
         if(node_id==0)  node_id++;
@@ -344,6 +363,20 @@ while(1)
 
 }
 pthread_exit(thread2_result);
+}
+
+void *thread_config(void *arg)
+{
+while(1){
+ printf("config thread\n");
+ sem_wait(&bin_sem);
+ param_config();
+ sem_post(&bin_sem);
+ printf("post\n");
+ sleep(10);
+ }
+ pthread_exit(thread3_result);
+ 
 }
 
 char* trim (char * s)
@@ -396,7 +429,7 @@ void param_config(void) {
 
                 /* Copy into correct entry in parameters struct */
                 if (strcmp(name, "MQTT_HOST")==0){
-                        strncpy (MQTT_HOST, value, MAXLEN);
+                        strncpy (MQTT_HOST,value,30);
                         printf("MQTT_HOST:\t%s\n",MQTT_HOST);
                 }
                 else if (strcmp(name, "MQTT_PORT")==0){
