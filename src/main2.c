@@ -343,7 +343,7 @@ void* thread_tx(void* arg)
  char func_code;
 while(1)
 {	
-	while(flag_wait==1);
+	//while(flag_wait==1);
  	sem_wait(&bin_sem);
         printf("tx thread\n");
         //Change Node id
@@ -370,8 +370,8 @@ while(1)
   	if((node_id==2)&&(func_code=='H'))
 	{
 	flag_wait=1;
-	param_config();
-
+	//param_config();
+	sleep(1);
 	flag_wait=0;
 	}
 	sem_post(&bin_sem);
@@ -437,17 +437,17 @@ void param_config(void) {
                 if (s==NULL)
                         continue;
                 else
-                        strcpy (name, s);
+                        strncpy (name, s, MAXLEN);
                 s = strtok (NULL, "=");
                 if (s==NULL)
                         continue;
                 else
-                        strcpy (value, s);
+                        strncpy (value, s, MAXLEN);
                 trim (value);
 
                 /* Copy into correct entry in parameters struct */
                 if (strcmp(name, "MQTT_HOST")==0){
-                        strcpy (MQTT_HOST,value);
+                        strncpy (MQTT_HOST,value,30);
                         printf("MQTT_HOST:\t%s\n",MQTT_HOST);
                 }
                 else if (strcmp(name, "MQTT_PORT")==0){
@@ -457,17 +457,17 @@ void param_config(void) {
                                                                                                                            
                 //      strncpy (parms->flavor, value, MAXLEN);
                 else if (strcmp(name, "MQTT_TOPIC")==0){
-                        strcpy (MQTT_TOPIC, value);
+                        strncpy (MQTT_TOPIC, value, MAXLEN);
                         printf("MQTT_TOPIC:\t%s\n",MQTT_TOPIC);
                 }
                 //	IoT Configuration
 		
 		else if (strcmp(name, "RS485_UART")==0){
-                        strcpy (rs485_uart, value);   
+                        strncpy (rs485_uart, value, MAXLEN);   
                         printf("RS485_UART = \t%s\n",rs485_uart);
                 }
 		else if (strcmp(name, "ZIGBEE_UART")==0){
-                        strcpy (zigbee_uart, value);
+                        strncpy (zigbee_uart, value, MAXLEN);
                         printf("ZIGBEE_UART = \t%s\n",zigbee_uart);
                 }
 		else if (strcmp(name, "IoT_NO_OF_NODES")==0){
