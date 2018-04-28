@@ -4,10 +4,12 @@ all:bin/main
 
 bin/main:src/main.o
 	${CC} src/main.o -I inc/ -L lib -lgateway -lkmlcd -lmosquitto -lpthread -o bin/main
+	gcc src/subscriber.o -I /usr/include/mysql/ -lmosquitto -lmysqlclient -o bin/sub
+
 src/main.o: 
 	make -C src
 clean:
-	rm bin/main
+	rm bin/main bin/sub
 	make -C src clean
 install:
 	sudo cp bin/main /usr/bin
@@ -21,6 +23,6 @@ library:
 distclean:
 	make -C lib clean
 	make -C src clean	
-	rm bin/main
+	rm bin/main bin/sub
 copy:
 	scp bin/main km@192.168.1.12:~/gateway
