@@ -51,10 +51,10 @@ while True:
     if(result==1):
         print "updating now"
         firebase.put('Config','Ready',0)
-        F = open("config.txt","w") 
+        F = open("config","w") 
         F.truncate()
         getset_data()
         F.close()
     else:
-        print "sleeping"
+       # print "python sleeping"
         time.sleep(2)

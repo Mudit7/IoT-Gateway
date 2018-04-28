@@ -13,7 +13,7 @@
 #include<signal.h>
 
 #define MAXLEN 80
-#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config.txt"      //abs location for config file
+#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config"      //abs location for config file
 //#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config_copy"      //abs location for config file
 
 //#define NO_OF_NODES 2
@@ -82,7 +82,6 @@ void offline_func(int node)
 
 void rx_hum_temp(int sig)                  //To receive the data from uart buffer
 { 		int n1,n2;	
-	while(flag_wait==1);
 		
 		sem_wait(&bin_sem);
 		//printf("Rx signal\n");
@@ -155,13 +154,13 @@ void rx_hum_temp(int sig)                  //To receive the data from uart buffe
 		{	
 			printf("Node %c:Temperature=> %c%c\n", data_buf[1], data_buf[3],data_buf[4]);
 			sprintf(mosq_buf, "%dT%c%c",node_id,data_buf[3],data_buf[4]);
-			sprintf(lcd_str,"N1: Temp->%c%c  ",data_buf[3],data_buf[4]);
+			sprintf(lcd_str,"N%c: Temp->%c%c  ",data_buf[1],data_buf[3],data_buf[4]);
 		}
 		if(data_buf[2]=='H')
 		{
 			printf("Node %c:Humidity=> %c%c\n", data_buf[1], data_buf[3],data_buf[4]);
 			sprintf(mosq_buf, "%dH%c%c",node_id,data_buf[3],data_buf[4]);
-			sprintf(lcd_str,"N1: Hum ->%c%c  ",data_buf[3],data_buf[4]);
+			sprintf(lcd_str,"N%c: Hum ->%c%c  ",data_buf[1],data_buf[3],data_buf[4]);
 		}
 
 		// finally publish the received data
@@ -248,26 +247,8 @@ if(fd<0)
     printf("Can not open comport - uart4\n");
         exit(EXIT_FAILURE);
   }
-
-
-//testing..
-/*        KM_Serial_flushTX(cport_nr1);
-        KM_Serial_flushTX(cport_nr2);
-        write(fd,"1",4);
-        usleep(10000);
-        sprintf(str_t,"<%d%c>\n",1,'Z');
-        if(zig_en)
-        KM_Serial_SendBuf(cport_nr1, str_t,sizeof(str_t));  //send through zigbee and rs485
-        KM_Serial_SendBuf(cport_nr2, str_t,sizeof(str_t));  //send through zigbee and rs485
-        sleep(2);
-
-       printf("configured for zigbee\n");	
-	param_config();	//Reading config file
-	//sleep(5);
-//	param_config();	//Reading config file
-//	sleep(1);
-	printf("something\n");
-*/	res=pthread_create(&a_thread,NULL,thread_rx,(void*)0);
+	
+	res=pthread_create(&a_thread,NULL,thread_rx,(void*)0);
     	if(res<0)
     	{
 		perror("thread_create failed : \n");
@@ -279,12 +260,12 @@ if(fd<0)
         	perror("thread_create failed : \n");
         	return -1;
     	}
-/*    res=pthread_create(&c_thread,NULL,thread_config,(void*)0);
+    res=pthread_create(&c_thread,NULL,thread_config,(void*)0);
     	if(res<0)
     	{
         	perror("thread_create failed : \n");
         	return -1;
-    	}*/
+    	}
     res=pthread_join(a_thread,&thread1_result);
     	if(res<0)
    	 {
@@ -310,7 +291,7 @@ if(fd<0)
     	}
 
 
-/*    res=pthread_join(c_thread,&thread3_result);
+    res=pthread_join(c_thread,&thread3_result);
     	if(res<0)
    	 {
        		 perror("join failed:\n");
@@ -320,7 +301,7 @@ if(fd<0)
     	{
         	printf("thread joined\n");
     	}
-  */ 
+  
 return 0;
 }
 
@@ -343,14 +324,12 @@ void* thread_tx(void* arg)
  char func_code;
 while(1)
 {	
-	while(flag_wait==1);
  	sem_wait(&bin_sem);
-        printf("tx thread\n");
+       // printf("tx thread\n");
         //Change Node id
         if(func_code=='H')
         node_id=(node_id+1)%(no_of_nodes+1);
         if(node_id==0)  node_id++;
-//	node_id=2;
         func_code=(func_code=='T')?'H':'T';
 
         KM_Serial_flushTX(cport_nr1);
@@ -367,13 +346,7 @@ while(1)
        // printf("sent: %s\n", str_t);
         usleep(300000);
         pthread_kill(a_thread,SIGALRM);
-  	if((node_id==2)&&(func_code=='H'))
-	{
-	flag_wait=1;
-	param_config();
-
-	flag_wait=0;
-	}
+	
 	sem_post(&bin_sem);
 
         sleep(poll_time);               //Poll Interval
@@ -381,21 +354,21 @@ while(1)
 }
 pthread_exit(thread2_result);
 }
-/*
+
 void *thread_config(void *arg)
 {
 while(1){
- printf("config thread\n");
-// sem_wait(&bin_sem);
+ //printf("config thread\n");
+ sem_wait(&bin_sem);
  param_config();
-// sem_post(&bin_sem);
- printf("post\n");
+ sem_post(&bin_sem);
+ //printf("post\n");
  sleep(10);
  }
  pthread_exit(thread3_result);
  
 }
-*/
+
 char* trim (char * s)
 {
         /* Initialize start, end pointers */
@@ -423,7 +396,7 @@ void param_config(void) {
         {
                 return;
         }
-
+	printf("\n\n***************Reading Configuration****************\n");
         /* Read next line */
         while ((s = fgets (buff, sizeof buff, fp)) != NULL)
         {
@@ -448,27 +421,27 @@ void param_config(void) {
                 /* Copy into correct entry in parameters struct */
                 if (strcmp(name, "MQTT_HOST")==0){
                         strcpy (MQTT_HOST,value);
-                        printf("MQTT_HOST:\t%s\n",MQTT_HOST);
+   //                     printf("MQTT_HOST:\t%s\n",MQTT_HOST);
                 }
                 else if (strcmp(name, "MQTT_PORT")==0){
                         MQTT_PORT = atoi(value);
-                        printf("MQTT_PORT:\t%d\n",MQTT_PORT);
+     //                   printf("MQTT_PORT:\t%d\n",MQTT_PORT);
                 }
                                                                                                                            
                 //      strncpy (parms->flavor, value, MAXLEN);
                 else if (strcmp(name, "MQTT_TOPIC")==0){
                         strcpy (MQTT_TOPIC, value);
-                        printf("MQTT_TOPIC:\t%s\n",MQTT_TOPIC);
+       //                 printf("MQTT_TOPIC:\t%s\n",MQTT_TOPIC);
                 }
                 //	IoT Configuration
 		
 		else if (strcmp(name, "RS485_UART")==0){
                         strcpy (rs485_uart, value);   
-                        printf("RS485_UART = \t%s\n",rs485_uart);
+         //               printf("RS485_UART = \t%s\n",rs485_uart);
                 }
 		else if (strcmp(name, "ZIGBEE_UART")==0){
                         strcpy (zigbee_uart, value);
-                        printf("ZIGBEE_UART = \t%s\n",zigbee_uart);
+           //             printf("ZIGBEE_UART = \t%s\n",zigbee_uart);
                 }
 		else if (strcmp(name, "IoT_NO_OF_NODES")==0){
                         no_of_nodes=atoi(value);
@@ -490,6 +463,7 @@ void param_config(void) {
                         printf ("WARNING: %s/%s: Unknown name/value pair!\n",
                                         name, value);
         }
+	printf("****************************************************\n\n");
         /* Close file */
         fclose (fp);
 }
