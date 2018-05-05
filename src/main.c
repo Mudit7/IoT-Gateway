@@ -14,10 +14,6 @@
 
 #define MAXLEN 80
 #define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config"      //abs location for config file
-//#define CONFIG_FILE "/home/km/KM_GIT/iot/gateway/config_copy"      //abs location for config file
-
-//#define NO_OF_NODES 2
-
 
 
 void rx_hum_temp(int);
@@ -32,7 +28,6 @@ int i=0, fd,cport_nr2=4,cport_nr1=5,bdrate=115200;
 void* thread1_result,*thread2_result,*thread3_result;	
 int node_id=0;
 char lcd_str[10],w_str[6],str_t[6],str_h[6];
-//int flag_priority=0;
 uint8_t reconnect = true;
 char clientid[24];
 int rc = 0;
@@ -362,7 +357,6 @@ while(1){
  sem_wait(&bin_sem);
  param_config();
  sem_post(&bin_sem);
- //printf("post\n");
  sleep(10);
  }
  pthread_exit(thread3_result);

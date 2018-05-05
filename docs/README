@@ -1,3 +1,17 @@
+IoT Gateway
+The Gateway polls nodes for temperature and humidity in KM Protocol Format and uses MQTT Protocol to publish the same.
+The MQTT subscriber then uploads this data to a MYSQL Database server.
+Python script monitors the firebase server and updates the config file if any changes are encountered.
+
+Prerequisites for Publisher
+libmosquitto       ->  sudo apt-get install libmosquitto
+
+
+Prerequisites for Subscriber
+libmysqlclient     ->  sudo apt-get install libmysqlclient
+libmosquitto       ->  sudo apt-get install libmosquitto
+
+
 KM IoT Protocol Format:
 ---------------------
 
@@ -14,4 +28,16 @@ rx: 	<start><node_id><function_code><data><end>
 	function_code: 'T' or 'H'
 	data:Temperature or humidity value
 	end:'>'
+
+
+Deployment
+run the automake.sh with superuser 
+sudo ./automake.sh
+
+
+
+Authors
+Mudit Malpani			muditmalpani1997@gmail.com
+Teerna Mukhopadhyay		teerna96@gmail.com
+Kishore Kumar Boddu (Mentor)	kernelmasters@gmail.com
 
